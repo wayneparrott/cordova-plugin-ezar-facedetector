@@ -142,11 +142,6 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
     @Override
     public void onFaceDetection(Camera.Face[] faces, Camera camera) {
 
-        if (faces.length == 0) {
-            Log.d(TAG, "No faces detected");
-            return;
-        }
-
         if (callbackContext == null) {
             Log.d(TAG, "No callback context");
             return;
@@ -165,8 +160,6 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
         // UI coordinates range from (0, 0) to (width, height).
         matrix.postScale(browserWidth / 2000f, browserHt / 2000f);
         matrix.postTranslate(browserWidth / 2f, browserHt / 2f);
-        // matrix.postScale(webViewView.getWidth() / 2000f, webViewView.getHeight() / 2000f);
-        // matrix.postTranslate(webViewView.getWidth() / 2f, webViewView.getHeight() / 2f);
 
         JSONArray faceRects = new JSONArray();
         RectF rectF = new RectF();
@@ -187,6 +180,7 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
             }
         } catch(JSONException ex) {
             Log.e(TAG, "Error returning FaceInfo: ", ex);
+            //do not return anything
         }
 
         PluginResult result = new PluginResult(PluginResult.Status.OK, faceRects);
