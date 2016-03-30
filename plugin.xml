@@ -24,26 +24,21 @@
 	
 	
 	<!-- ios -->
-    <!--
-	<platform name="ios">
-		
+	<platform name="ios">		
 		<config-file target="config.xml" parent="/*">
-			<feature name="snapshot">
-				<param name="ios-package" value="CDVezARSnapshot"/>
+			<feature name="facedetector">
+				<param name="ios-package" value="CDVezARFaceDetector"/>
 			</feature>
 		</config-file>
 		
-		<header-file src="src/ios/CDVezARSnapshot.h" /> 
-		<source-file src="src/ios/CDVezARSnapshot.m" />
+		<header-file src="src/ios/CDVezARFaceDetector.h" /> 
+		<source-file src="src/ios/CDVezARFaceDetector.m" />
 		
 		<framework src="UIKit.framework" />
 		<framework src="Foundation.framework" />
 		<framework src="AVFoundation.framework" />
-		<framework src="CoreImage.framework" />
-		<framework src="CoreVideo.framework" />
-        <framework src="AudioToolbox.framework" />
+		<framework src="CoreImage.framework" />		
 	  </platform>
-      -->
       
 	<!-- android -->
 	<platform name="android">
