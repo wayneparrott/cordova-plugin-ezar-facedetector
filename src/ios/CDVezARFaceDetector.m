@@ -53,6 +53,9 @@
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
+michel
+2.4533400 x101
+
 
 //----------------------------------------------------------------
 - (UIImageView *) getCameraView
