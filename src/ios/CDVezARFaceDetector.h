@@ -18,10 +18,11 @@
 /**
  * Implements the ezAR Cordova api. 
  */
-@interface CDVezARFaceDetector : CDVPlugin
+@interface CDVezARFaceDetector : CDVPlugin <AVCaptureVideoDataOutputSampleBufferDelegate>
 
 - (void) start:(CDVInvokedUrlCommand*)command;
 - (void) stop:(CDVInvokedUrlCommand*)command;
+- (void) update:(CDVInvokedUrlCommand*)command;
 
 @end
 
