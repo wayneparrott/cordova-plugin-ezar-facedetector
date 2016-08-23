@@ -17,11 +17,12 @@
 
 @implementation CDVezARFaceDetector
 {
+   BOOL isInitialized;
    NSString *callbackId;
    AVCaptureVideoDataOutput *videoDataOutput;
    dispatch_queue_t videoDataOutputQueue;
    CIDetector *faceDetector;
-   NSUInteger faceCount;
+   int faceCount;
    
    double browserWidth, browserHt;
    CGFloat nativeScale;
@@ -40,7 +41,7 @@
 - (void) start:(CDVInvokedUrlCommand*)command
 {
     UIImageView *camView = [self getCameraView];
-    //CGRect bnds = [x bounds];
+
     //CGFloat cntScale = x.contentScaleFactor;
     //CGFloat nativeScale = x.window.screen.nativeScale;
     nativeScale = camView.window.screen.scale;
@@ -49,19 +50,25 @@
     browserWidth = [[command.arguments objectAtIndex: 0] doubleValue];
     browserHt = [[command.arguments objectAtIndex: 1] doubleValue];
    
-    videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
-    NSDictionary *rgbOutputSettings = [NSDictionary dictionaryWithObject:
+    if (videoDataOutput == nil) {
+        videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
+        NSDictionary *rgbOutputSettings = [NSDictionary dictionaryWithObject:
                                            [NSNumber numberWithInt:kCMPixelFormat_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey];
-    [videoDataOutput setVideoSettings:rgbOutputSettings];
-    [videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
-    videoDataOutputQueue = dispatch_queue_create("VideoDataOutputQueue", DISPATCH_QUEUE_SERIAL);
-    [videoDataOutput setSampleBufferDelegate:self queue: videoDataOutputQueue];
-    if ( [[self getAVCaptureSession] canAddOutput:videoDataOutput] ){
-        [[self getAVCaptureSession] addOutput:videoDataOutput];
+        [videoDataOutput setVideoSettings:rgbOutputSettings];
+        [videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
+        videoDataOutputQueue = dispatch_queue_create("VideoDataOutputQueue", DISPATCH_QUEUE_SERIAL);
+        [videoDataOutput setSampleBufferDelegate:self queue: videoDataOutputQueue];
+        if ( [[self getAVCaptureSession] canAddOutput:videoDataOutput] ){
+            [[self getAVCaptureSession] addOutput:videoDataOutput];
+        }
     }
-       
-    [[videoDataOutput connectionWithMediaType:AVMediaTypeVideo] setEnabled:YES];
-   
+    
+    if (!videoDataOutput) {
+        [[videoDataOutput connectionWithMediaType:AVMediaTypeVideo] setEnabled:YES];
+    } else {
+        //todo: return setup error occured
+    }
+    
     //CDVPluginResult* result = nil;
     //result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     //[result setKeepCallbackAsBool: YES];
@@ -71,12 +78,18 @@
 - (void) stop:(CDVInvokedUrlCommand*)command
 {
     CDVPluginResult* result = nil;
-   
+    
+    if (videoDataOutput) {
+        [[videoDataOutput connectionWithMediaType:AVMediaTypeVideo] setEnabled:NO];
+    }
+    
     result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [result setKeepCallbackAsBool: NO];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
+//todo reimplement to detect device rotation events rather than a call from the plugin js interface
+//update: is a hack mechanism for updating state on device rotation
 - (void) update:(CDVInvokedUrlCommand*)command
 {
     browserWidth = [[command.arguments objectAtIndex: 0] doubleValue];
@@ -90,7 +103,16 @@
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection
 {
 	CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-	CIImage *ciImage = [[CIImage alloc] initWithCVPixelBuffer:pixelBuffer];
+    CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, sampleBuffer, kCMAttachmentMode_ShouldPropagate);
+    CIImage *ciImage = [[CIImage alloc] initWithCVPixelBuffer:pixelBuffer
+                                                      options:(__bridge NSDictionary *)attachments];
+    if (attachments) {
+        CFRelease(attachments);
+    }
+    
+    //int height = CVPixelBufferGetHeight(pixelBuffer);
+    //CGAffineTransform transform = CGAffineTransformMakeScale(1.0/nativeScale, -1.0/nativeScale);
+    //transform = CGAffineTransformTranslate(transform, 0, -1 * height);
     
 	// make sure your device orientation is not locked.
 	UIDeviceOrientation curDeviceOrientation = [[UIDevice currentDevice] orientation];
@@ -106,19 +128,26 @@
         faceCount = [features count];
         
 	    CMFormatDescriptionRef fdesc = CMSampleBufferGetFormatDescription(sampleBuffer);
-	    CGRect cleanAperture = CMVideoFormatDescriptionGetCleanAperture(fdesc, false);
+	    CGRect clearAperture = CMVideoFormatDescriptionGetCleanAperture(fdesc, false);
 	
 	    dispatch_async(dispatch_get_main_queue(), ^(void) {
-		    //[self drawFaces:features forVideoBox:cleanAperture];
+
+            //NSLog(@"faces: %lu", (unsigned long)faceCount);
             
-            NSLog(@"faces: %lu", (unsigned long)faceCount);
-            
-            UIView* wv = self.webView;
-            CGRect wvBnds = wv.bounds;
+            //UIView* wv = self.webView;
+            //CGRect wvBnds = wv.bounds;
             //CGFloat widthScaleBy = browserWidth / wvBnds.size.height / nativeScale;
             //CGFloat heightScaleBy = browserHt / wvBnds.size.width / nativeScale;
-            CGFloat widthScaleBy = 1.0 / nativeScale;
-            CGFloat heightScaleBy = 1.0 / nativeScale;
+            //CGFloat widthScaleBy = 1.0 / nativeScale;
+            //CGFloat heightScaleBy = 1.0 / nativeScale;
+            
+            //https://github.com/jeroentrappers/FaceDetectionPOC/blob/master/FaceDetectionPOC/ViewController.m
+            CGSize parentFrameSize = [[self getCameraView] frame].size;
+            NSString *gravity = AVLayerVideoGravityResizeAspectFill;
+            BOOL isMirrored = [self isFrontCameraRunning];
+            CGRect previewBox = [self videoPreviewBoxForGravity:gravity
+                                                      frameSize:parentFrameSize
+                                                   apertureSize:clearAperture.size];
             
             NSMutableArray *faces = [NSMutableArray arrayWithCapacity:faceCount];
             for (int i=0; i < faceCount; i++) {
@@ -127,28 +156,35 @@
                 // (Bottom right if mirroring is turned on)
                 CGRect faceRect = [[features objectAtIndex: i] bounds];
                 
-                // flip preview width and height
+                //faceRect = CGRectApplyAffineTransform(faceRect, transform);
                 
-                 CGFloat temp = faceRect.size.width;
+                //NSLog(@"face1 x/y: %lu %lu %lu %lu", (unsigned long)faceRect.origin.x,(unsigned long)faceRect.origin.y,
+                //      (unsigned long)faceRect.size.width, (unsigned long)faceRect.size.height);
+                
+                // flip preview width and height
+                CGFloat temp = faceRect.size.width;
                 faceRect.size.width = faceRect.size.height;
                 faceRect.size.height = temp;
                 temp = faceRect.origin.x;
                 faceRect.origin.x = faceRect.origin.y;
                 faceRect.origin.y = temp;
                 
-                
-                // scale coordinates so they fit in the webview browser coords
+                // scale coordinates so they fit in the preview box, which may be scaled
+                CGFloat widthScaleBy = previewBox.size.width / clearAperture.size.height;
+                CGFloat heightScaleBy = previewBox.size.height / clearAperture.size.width;
                 faceRect.size.width *= widthScaleBy;
                 faceRect.size.height *= heightScaleBy;
                 faceRect.origin.x *= widthScaleBy;
-                faceRect.origin.y *= heightScaleBy;
-        
-                /*
+                faceRect.origin.y *= heightScaleBy ;
+                
                 if ( isMirrored )
                     faceRect = CGRectOffset(faceRect, previewBox.origin.x + previewBox.size.width - faceRect.size.width - (faceRect.origin.x * 2), previewBox.origin.y);
                 else
                     faceRect = CGRectOffset(faceRect, previewBox.origin.x, previewBox.origin.y);
-                */    
+                
+                //NSLog(@"face2 x/y: %lu %lu %lu %lu", (unsigned long)faceRect.origin.x,(unsigned long)faceRect.origin.y,
+                //      (unsigned long)faceRect.size.width, (unsigned long)faceRect.size.height);
+                
             
                 //build faceinfo array 
                 NSDictionary *faceinfo =
@@ -170,6 +206,52 @@
 	    });
     }
 }
+
+// find where the video box is positioned within the preview layer based on the video size and gravity
+- (CGRect)videoPreviewBoxForGravity:(NSString *)gravity
+                          frameSize:(CGSize)frameSize
+                       apertureSize:(CGSize)apertureSize
+{
+    CGFloat apertureRatio = apertureSize.height / apertureSize.width;
+    CGFloat viewRatio = frameSize.width / frameSize.height;
+    
+    CGSize size = CGSizeZero;
+    if ([gravity isEqualToString:AVLayerVideoGravityResizeAspectFill]) {
+        if (viewRatio > apertureRatio) {
+            size.width = frameSize.width;
+            size.height = apertureSize.width * (frameSize.width / apertureSize.height);
+        } else {
+            size.width = apertureSize.height * (frameSize.height / apertureSize.width);
+            size.height = frameSize.height;
+        }
+    } else if ([gravity isEqualToString:AVLayerVideoGravityResizeAspect]) {
+        if (viewRatio > apertureRatio) {
+            size.width = apertureSize.height * (frameSize.height / apertureSize.width);
+            size.height = frameSize.height;
+        } else {
+            size.width = frameSize.width;
+            size.height = apertureSize.width * (frameSize.width / apertureSize.height);
+        }
+    } else if ([gravity isEqualToString:AVLayerVideoGravityResize]) {
+        size.width = frameSize.width;
+        size.height = frameSize.height;
+    }
+    
+    CGRect videoBox;
+    videoBox.size = size;
+    if (size.width < frameSize.width)
+        videoBox.origin.x = (frameSize.width - size.width) / 2;
+    else
+        videoBox.origin.x = (size.width - frameSize.width) / 2;
+    
+    if ( size.height < frameSize.height )
+        videoBox.origin.y = (frameSize.height - size.height) / 2;
+    else
+        videoBox.origin.y = (size.height - frameSize.height) / 2;
+    
+    return videoBox;
+}
+
 
 - (NSNumber *) exifOrientation: (UIDeviceOrientation) orientation
 {
