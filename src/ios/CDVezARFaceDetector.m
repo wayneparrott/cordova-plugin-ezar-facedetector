@@ -33,8 +33,8 @@
 {
     [super pluginInitialize];
     
-    NSDictionary *detectorOptions = [[NSDictionary alloc] initWithObjectsAndKeys:CIDetectorAccuracyHigh, CIDetectorAccuracy, nil];
-    //NSDictionary *detectorOptions = [[NSDictionary alloc] initWithObjectsAndKeys:CIDetectorAccuracyLow, CIDetectorAccuracy, nil];
+    //NSDictionary *detectorOptions = [[NSDictionary alloc] initWithObjectsAndKeys:CIDetectorAccuracyHigh, CIDetectorAccuracy, nil];
+    NSDictionary *detectorOptions = [[NSDictionary alloc] initWithObjectsAndKeys:CIDetectorAccuracyLow, CIDetectorAccuracy, nil];
     faceDetector = [CIDetector detectorOfType:CIDetectorTypeFace context:nil options:detectorOptions];
 }
 
@@ -115,9 +115,8 @@
     //transform = CGAffineTransformTranslate(transform, 0, -1 * height);
     
 	// make sure your device orientation is not locked.
-	UIDeviceOrientation curDeviceOrientation = [[UIDevice currentDevice] orientation];
 	NSDictionary *imageOptions = 
-        [NSDictionary dictionaryWithObject:[self exifOrientation:curDeviceOrientation] 
+        [NSDictionary dictionaryWithObject:[self exifOrientation:[self getDeviceOrientation]]
                       forKey:CIDetectorImageOrientation];
     
     //detect faces    
@@ -132,22 +131,16 @@
 	
 	    dispatch_async(dispatch_get_main_queue(), ^(void) {
 
-            //NSLog(@"faces: %lu", (unsigned long)faceCount);
+            NSLog(@"faces: %lu", (unsigned long)faceCount);
             
-            //UIView* wv = self.webView;
-            //CGRect wvBnds = wv.bounds;
-            //CGFloat widthScaleBy = browserWidth / wvBnds.size.height / nativeScale;
-            //CGFloat heightScaleBy = browserHt / wvBnds.size.width / nativeScale;
-            //CGFloat widthScaleBy = 1.0 / nativeScale;
-            //CGFloat heightScaleBy = 1.0 / nativeScale;
             
             //https://github.com/jeroentrappers/FaceDetectionPOC/blob/master/FaceDetectionPOC/ViewController.m
             CGSize parentFrameSize = [[self getCameraView] frame].size;
             NSString *gravity = AVLayerVideoGravityResizeAspectFill;
             BOOL isMirrored = [self isFrontCameraRunning];
             CGRect previewBox = [self videoPreviewBoxForGravity:gravity
-                                                      frameSize:parentFrameSize
-                                                   apertureSize:clearAperture.size];
+                                                frameSize:parentFrameSize
+                                                apertureSize:clearAperture.size];
             
             NSMutableArray *faces = [NSMutableArray arrayWithCapacity:faceCount];
             for (int i=0; i < faceCount; i++) {
@@ -156,34 +149,98 @@
                 // (Bottom right if mirroring is turned on)
                 CGRect faceRect = [[features objectAtIndex: i] bounds];
                 
-                //faceRect = CGRectApplyAffineTransform(faceRect, transform);
+                NSLog(@"face1 x/y: %lu %lu %lu %lu", (unsigned long)faceRect.origin.x,(unsigned long)faceRect.origin.y,
+                      (unsigned long)faceRect.size.width, (unsigned long)faceRect.size.height);
                 
-                //NSLog(@"face1 x/y: %lu %lu %lu %lu", (unsigned long)faceRect.origin.x,(unsigned long)faceRect.origin.y,
-                //      (unsigned long)faceRect.size.width, (unsigned long)faceRect.size.height);
+                BOOL isPortrait = [self isDevicePortraitOrientation];
+                CGFloat temp;
+                if (isPortrait) {
+                    if (!isMirrored) {
+                       if (![self isDeviceUpsideDown]) { //no rotation
+                           // flip preview width and height
+                           temp = faceRect.size.width;
+                           faceRect.size.width = faceRect.size.height;
+                                faceRect.size.height = temp;
+                           temp = faceRect.origin.x;
+                           faceRect.origin.x = faceRect.origin.y;
+                           faceRect.origin.y = temp;
+                       }
+                          else { //upside down
+                           // flip preview width and height
+                           
+                            temp = faceRect.size.width;
+                           faceRect.size.width = faceRect.size.height;
+                           faceRect.size.height = temp;
+                           temp = faceRect.origin.x;
+                           faceRect.origin.x = faceRect.origin.y;
+                           faceRect.origin.y = temp;
+                           
+                           faceRect.origin.y = clearAperture.size.width - faceRect.origin.y - faceRect.size.height;
+                           faceRect.origin.x = clearAperture.size.height - faceRect.origin.x - faceRect.size.width;
+                       }
+                        
+                    } else { //mirrored - front camera facing user
+                        if (![self isDeviceUpsideDown]) { //no rotation
+                            // flip preview width and height
+                            temp = faceRect.size.width;
+                                faceRect.size.width = faceRect.size.height;
+                            faceRect.size.height = temp;
+                            temp = faceRect.origin.x;
+                            faceRect.origin.x = faceRect.origin.y;
+                            faceRect.origin.y = temp;
+                        } else { //upside down
+                            // flip preview width and height
+                            temp = faceRect.size.width;
+                            faceRect.size.width = faceRect.size.height;
+                            faceRect.size.height = temp;
+                            temp = faceRect.origin.x;
+                            faceRect.origin.x = faceRect.origin.y;
+                            faceRect.origin.y = temp;
+                            
+                            faceRect.origin.y = clearAperture.size.width - faceRect.origin.y - faceRect.size.height;
+                            faceRect.origin.x = clearAperture.size.height - faceRect.origin.x - faceRect.size.width;
+                        }
+                    }
+                } else {
+                    //landscape
+                    if (!isMirrored) {
+                        if (![self isDeviceUpsideDown]) { //rotated left
+                            faceRect.origin.y = clearAperture.size.height - faceRect.origin.y - faceRect.size.height;
+                        } else { //rotated right
+                            faceRect.origin.x = clearAperture.size.width - faceRect.origin.x - faceRect.size.width;
+                        }
+                    } else {
+                        if (![self isDeviceUpsideDown]) { //rotated left
+                            faceRect.origin.x = clearAperture.size.width - faceRect.origin.x - faceRect.size.width;
+                        } else {
+                            faceRect.origin.y = clearAperture.size.height - faceRect.origin.y - faceRect.size.height;
+                        }
+                        
+                    }
+                }
                 
-                // flip preview width and height
-                CGFloat temp = faceRect.size.width;
-                faceRect.size.width = faceRect.size.height;
-                faceRect.size.height = temp;
-                temp = faceRect.origin.x;
-                faceRect.origin.x = faceRect.origin.y;
-                faceRect.origin.y = temp;
+                // scale coordinates so they fit in the preview box, which may be scaledits a low`
+                CGFloat widthScaleBy = previewBox.size.width /
+                    (isPortrait ? clearAperture.size.height : clearAperture.size.width);
+                CGFloat heightScaleBy = previewBox.size.height /
+                    (isPortrait ? clearAperture.size.width : clearAperture.size.height);
                 
-                // scale coordinates so they fit in the preview box, which may be scaled
-                CGFloat widthScaleBy = previewBox.size.width / clearAperture.size.height;
-                CGFloat heightScaleBy = previewBox.size.height / clearAperture.size.width;
                 faceRect.size.width *= widthScaleBy;
                 faceRect.size.height *= heightScaleBy;
                 faceRect.origin.x *= widthScaleBy;
-                faceRect.origin.y *= heightScaleBy ;
+                faceRect.origin.y *= isMirrored ? widthScaleBy : heightScaleBy ;
                 
-                if ( isMirrored )
+                if ( isMirrored ) {
                     faceRect = CGRectOffset(faceRect, previewBox.origin.x + previewBox.size.width - faceRect.size.width - (faceRect.origin.x * 2), previewBox.origin.y);
-                else
+                }
+                else {
                     faceRect = CGRectOffset(faceRect, previewBox.origin.x, previewBox.origin.y);
+                }
+                 
+                //faceRect = CGRectOffset(faceRect, previewBox.origin.x, previewBox.origin.y);
                 
-                //NSLog(@"face2 x/y: %lu %lu %lu %lu", (unsigned long)faceRect.origin.x,(unsigned long)faceRect.origin.y,
-                //      (unsigned long)faceRect.size.width, (unsigned long)faceRect.size.height);
+                NSLog(@"face2 x/y: %lu %lu %lu %lu", (unsigned long)faceRect.origin.x,(unsigned long)faceRect.origin.y,
+                      (unsigned long)faceRect.size.width, (unsigned long)faceRect.size.height);
                 
             
                 //build faceinfo array 
@@ -212,8 +269,74 @@
                           frameSize:(CGSize)frameSize
                        apertureSize:(CGSize)apertureSize
 {
+    CGFloat apertureRatio = apertureSize.width / apertureSize.height;
+    BOOL isPortrait = UIInterfaceOrientationIsPortrait([self getUIInterfaceOrientation]);
+    CGSize normalizedFrameSize =  isPortrait ?
+            CGSizeMake(frameSize.height, frameSize.width) :
+            frameSize;
+    CGFloat viewRatio = normalizedFrameSize.width / normalizedFrameSize.height;
+   
+    CGSize size = CGSizeZero;
+    /* this block good for iphone 6s
+    size.width = normalizedFrameSize.width;
+    size.height = apertureSize.height * (normalizedFrameSize.width / apertureSize.width);
+    if (size.width > normalizedFrameSize.width ||
+        size.height > normalizedFrameSize.height) {
+    
+        size.height = normalizedFrameSize.height;
+        size.width = apertureSize.width * (normalizedFrameSize.height / apertureSize.height);
+    }
+     */
+    size.width = normalizedFrameSize.width;
+    size.height = normalizedFrameSize.height;
+    
+    //size.height = frameSize.height;
+    //size.width = apertureSize.height * (frameSize.height / apertureSize.width);
+    
+    /*
+     if (viewRatio < apertureRatio) {
+        size.width = apertureSize.height * (frameSize.width / apertureSize.width);
+        size.height = frameSize.height;
+    } else {
+        size.width = frameSize.width;
+        size.height = apertureSize.width * (frameSize.height / apertureSize.height);
+    }
+    */
+    
+    CGRect videoBox;
+    videoBox.size = size;
+    if (size.width < normalizedFrameSize.width)
+        videoBox.origin.x = (normalizedFrameSize.width - size.width) / 2;
+    else
+        videoBox.origin.x = (size.width - normalizedFrameSize.width) / 2;
+    
+    if ( size.height < normalizedFrameSize.height )
+        videoBox.origin.y = (normalizedFrameSize.height - size.height) / 2;
+    else
+        videoBox.origin.y = (size.height - normalizedFrameSize.height) / 2;
+    
+    
+    if (isPortrait) {
+        //rotate videoBox
+        CGFloat temp = videoBox.size.width;
+        videoBox.size.width = videoBox.size.height;
+        videoBox.size.height = temp;
+        temp = videoBox.origin.x;
+        videoBox.origin.x = videoBox.origin.y;
+        videoBox.origin.y = temp;
+    }
+    
+    return videoBox;
+}
+
+
+// find where the video box is positioned within the preview layer based on the video size and gravity
+- (CGRect)videoPreviewBoxForGravityOrig:(NSString *)gravity
+                          frameSize:(CGSize)frameSize
+                       apertureSize:(CGSize)apertureSize
+{
     CGFloat apertureRatio = apertureSize.height / apertureSize.width;
-    CGFloat viewRatio = frameSize.width / frameSize.height;
+    CGFloat viewRatio =  frameSize.width / frameSize.height;
     
     CGSize size = CGSizeZero;
     if ([gravity isEqualToString:AVLayerVideoGravityResizeAspectFill]) {
@@ -221,6 +344,7 @@
             size.width = frameSize.width;
             size.height = apertureSize.width * (frameSize.width / apertureSize.height);
         } else {
+            //frame is narrower than aperture,
             size.width = apertureSize.height * (frameSize.height / apertureSize.width);
             size.height = frameSize.height;
         }
@@ -251,7 +375,6 @@
     
     return videoBox;
 }
-
 
 - (NSNumber *) exifOrientation: (UIDeviceOrientation) orientation
 {
@@ -293,10 +416,42 @@
 			break;
 		case UIDeviceOrientationPortrait:            // Device oriented vertically, home button on the bottom
 		default:
-			exifOrientation = PHOTOS_EXIF_0ROW_RIGHT_0COL_TOP;
+            //if ([self isFrontCameraRunning])
+            //    exifOrientation = PHOTOS_EXIF_0ROW_LEFT_0COL_BOTTOM; //wayne added
+            // else
+                exifOrientation = PHOTOS_EXIF_0ROW_RIGHT_0COL_TOP;
+            
 			break;
 	}
     return [NSNumber numberWithInt:exifOrientation];
+}
+
+- (UIDeviceOrientation) getDeviceOrientation
+{
+    return[[UIDevice currentDevice] orientation];
+}
+
+-(UIInterfaceOrientation) getUIInterfaceOrientation
+{
+    return [[UIApplication sharedApplication] statusBarOrientation];
+}
+
+
+ - (BOOL) isUIPortraitOrientation
+{
+    return UIInterfaceOrientationIsPortrait([self getUIInterfaceOrientation]);
+}
+
+- (BOOL) isDevicePortraitOrientation
+{
+    return UIDeviceOrientationIsPortrait([self getDeviceOrientation]);
+}
+
+- (BOOL) isDeviceUpsideDown
+{
+    UIDeviceOrientation orient = [self getDeviceOrientation];
+    return orient == UIDeviceOrientationPortraitUpsideDown ||
+            orient == UIDeviceOrientationLandscapeRight;
 }
 
 //----------------------------------------------------------------
