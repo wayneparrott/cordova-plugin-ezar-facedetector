@@ -30,7 +30,15 @@ module.exports = (function() {
      */
     
     _facedetector.watchFaces = function(successCallback,errorCallback) {
-       
+       //test for videoOverlay plugin installed
+       if (window.ezar && window.ezar.initializeVideoOverlay) {
+           //error the videoOverlay plugin is not installed
+           if (errorCallback && typeof(errorCallback) === 'function') {
+               errorCallback('Required VideoOverlay plugin not present');
+           }
+           return;
+       }
+
         var onSuccess = function(faces) {
             running = true;
             if (successCallback) {
@@ -63,6 +71,8 @@ module.exports = (function() {
 
     }
     
+    //hack - orientation changed, send new window dims to native code
+    //       todo: replace with native orientation detection 
     function update() {
         setTimeout(
             function() {
