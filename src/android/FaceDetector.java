@@ -10,6 +10,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
@@ -28,8 +29,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.webkit.WebView;
-
-import com.ezartech.ezar.videooverlay.CameraDirection;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
@@ -52,12 +51,14 @@ import java.util.List;
  */
 public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionListener {
 	private static final String TAG = "FaceDetector";
+    static final int UNDEFINED  = -1;
+
     private CallbackContext callbackContext;
 
     private View webViewView;
-	private int cameraId;
-    private Camera camera;
-    private CameraDirection cameraDirection;
+	private int voCameraId;           //updated by VO start/stop events
+    private Camera voCamera;          //updated by VO start/stop events
+    private int voCameraDir;          //updated by VO start/stop events
     private int browserWidth, browserHt;
 
     //code adapted from http://bytefish.de/blog/face_detection_with_android/
@@ -97,9 +98,8 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
     private void startFaceDetection(CallbackContext callbackContext) {
 		Log.d(TAG, "startFaceDetection");
 
-        if  (callbackContext != null) {
-            this.callbackContext = callbackContext;
-        }
+        this.callbackContext = callbackContext;
+        if (callbackContext == null) return;
         
 		if (getActiveVOCamera() == null) {
 			//no camera running, return error; this should be handled already as precondition in javascript api
@@ -107,36 +107,36 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
             return;
 		}
 
-        cameraDirection = getActiveCameraDirection();
-        cameraId = getActiveVOCameraId();
-		camera = getActiveVOCamera();
-        int maxDetectedFaces =  camera.getParameters().getMaxNumDetectedFaces();
+        voCameraDir = getActiveCameraDirection();
+        voCameraId = getActiveVOCameraId();
+		voCamera = getActiveVOCamera();
+        int maxDetectedFaces =  voCamera.getParameters().getMaxNumDetectedFaces();
         Log.d(TAG,"MAX DETECTED FACES" + maxDetectedFaces);
         if (maxDetectedFaces < 1) {
             callbackContext.error("Face detection is not supported on this device");
             return;
         }
 
-        camera.setFaceDetectionListener(this);
-        camera.startFaceDetection();
+        voCamera.setFaceDetectionListener(this);
+        voCamera.startFaceDetection();
 	}
     
     private void stopFaceDetection(CallbackContext callbackContext) {
 		Log.d(TAG, "stopFaceDetection");
 
-        if (camera != null) {
+        if (voCamera != null) {
            try {
-               camera.stopFaceDetection();
-               camera.setFaceDetectionListener(null);
+               voCamera.stopFaceDetection();
+               voCamera.setFaceDetectionListener(null);
            } catch(Exception ex) {
                //do nothing
            }
         }
 
-        if (camera != null) {
-            camera = null;
-            cameraId = -1;
-            cameraDirection = null;
+        if (voCamera != null) {
+            voCamera = null;
+            voCameraId = -1;
+            voCameraDir = UNDEFINED;
         }
 
         if (callbackContext != null) {
@@ -153,17 +153,12 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
             return;
         }
 
-//        if (faces.length == 0) {
-//            Log.d(TAG, "No faces detected");
-//            return;
-//        }
-
         Log.d(TAG, "Faces Detected = " + faces.length);
 
         Matrix matrix = new Matrix();
 
         // Need mirror for front camera.
-        boolean mirror = (cameraDirection.isMirror());
+        boolean mirror = (voCameraDir == Camera.CameraInfo.CAMERA_FACING_FRONT);
         matrix.setScale(mirror ? -1 : 1, 1);
         // This is the value for android.hardware.Camera.setDisplayOrientation.
         matrix.postRotate(getDisplayOrientation());
@@ -188,6 +183,22 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
                 jsonFace.put("right", (int) rectF.right);
                 jsonFace.put("bottom", (int) rectF.bottom);
                 Log.d(TAG, "face rect: " + jsonFace);
+
+               /*
+                float[] pts = new float[] {face.leftEye.x, face.leftEye.y,
+                                           face.rightEye.x, face.rightEye.y,
+                                           face.mouth.x, face.mouth.y};
+                matrix.mapPoints(pts);
+                jsonFace.put("leftEyeX",  (int) pts[0]);
+                jsonFace.put("leftEyeY",  (int) pts[1]);
+                jsonFace.put("rightEyeX", (int) pts[2]);
+                jsonFace.put("rightEyeY", (int) pts[3]);
+                jsonFace.put("mouthX",    (int) pts[4]);
+                jsonFace.put("mouthY",    (int) pts[5]);
+                Log.d(TAG, "left-eye: "  + pts[0] + "," + pts[1] +
+                           " right-eye: "+ pts[2] + "," + pts[3] +
+                           " mouth: "    + pts[4] + "," + pts[5]);
+                */
                 
                 faceRects.put(jsonFace);
             }
@@ -290,10 +301,10 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
 		return camera;
 	}
 
-    private CameraDirection getActiveCameraDirection() {
+    private int getActiveCameraDirection() {
         //reflectively access VideoOverlay plugin to get display orientation angle
 
-        CameraDirection result = null;
+        int result = -1;
 
         CordovaPlugin voPlugin = getVOPlugin();
         if (voPlugin == null) {
@@ -313,7 +324,7 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
         try {
             if (method == null) return result;
 
-            result = (CameraDirection)method.invoke(voPlugin);
+            result = (Integer)method.invoke(voPlugin);
 
         } catch (IllegalArgumentException e) { // exception handling omitted for brevity
             //e.printStackTrace();
@@ -363,7 +374,7 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
     }
 
     public void videoOverlayStarted(int voCameraDir, int voCameraId, Camera voCamera) {
-       startFaceDetection(null);
+       startFaceDetection(callbackContext);
     }
 
     public void videoOverlayStopped(int voCameraDir, int voCameraId, Camera voCamera) {
