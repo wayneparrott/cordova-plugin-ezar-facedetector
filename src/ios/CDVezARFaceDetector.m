@@ -25,27 +25,23 @@
    int faceCount;
    
    double browserWidth, browserHt;
-   CGFloat nativeScale;
 }
 
 // INIT PLUGIN - does nothing atm
 - (void) pluginInitialize
 {
     [super pluginInitialize];
-    
-    //NSDictionary *detectorOptions = [[NSDictionary alloc] initWithObjectsAndKeys:CIDetectorAccuracyHigh, CIDetectorAccuracy, nil];
-    NSDictionary *detectorOptions = [[NSDictionary alloc] initWithObjectsAndKeys:CIDetectorAccuracyLow, CIDetectorAccuracy, nil];
-    faceDetector = [CIDetector detectorOfType:CIDetectorTypeFace context:nil options:detectorOptions];
 }
 
 - (void) start:(CDVInvokedUrlCommand*)command
 {
+    //todo: make facedetection accuracy option
+    NSDictionary *detectorOptions = [[NSDictionary alloc] initWithObjectsAndKeys:CIDetectorAccuracyHigh, CIDetectorAccuracy, nil];
+    //NSDictionary *detectorOptions = [[NSDictionary alloc] initWithObjectsAndKeys:CIDetectorAccuracyLow, CIDetectorAccuracy, nil];
+    faceDetector = [CIDetector detectorOfType:CIDetectorTypeFace context:nil options:detectorOptions];
+    
     UIImageView *camView = [self getCameraView];
 
-    //CGFloat cntScale = x.contentScaleFactor;
-    //CGFloat nativeScale = x.window.screen.nativeScale;
-    nativeScale = camView.window.screen.scale;
-    
     callbackId = command.callbackId;
     browserWidth = [[command.arguments objectAtIndex: 0] doubleValue];
     browserHt = [[command.arguments objectAtIndex: 1] doubleValue];
@@ -67,12 +63,12 @@
         [[videoDataOutput connectionWithMediaType:AVMediaTypeVideo] setEnabled:YES];
     } else {
         //todo: return setup error occured
+        
+        //CDVPluginResult* result = nil;
+        //result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+        //[result setKeepCallbackAsBool: YES];
+        //[self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     }
-    
-    //CDVPluginResult* result = nil;
-    //result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-    //[result setKeepCallbackAsBool: YES];
-    //[self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void) stop:(CDVInvokedUrlCommand*)command
@@ -110,10 +106,6 @@
         CFRelease(attachments);
     }
     
-    //int height = CVPixelBufferGetHeight(pixelBuffer);
-    //CGAffineTransform transform = CGAffineTransformMakeScale(1.0/nativeScale, -1.0/nativeScale);
-    //transform = CGAffineTransformTranslate(transform, 0, -1 * height);
-    
 	// make sure your device orientation is not locked.
 	NSDictionary *imageOptions = 
         [NSDictionary dictionaryWithObject:[self exifOrientation:[self getDeviceOrientation]]
@@ -147,7 +139,8 @@
                 // find the correct position for the square layer within the previewLayer
                 // the feature box originates in the bottom left of the video frame.
                 // (Bottom right if mirroring is turned on)
-                CGRect faceRect = [[features objectAtIndex: i] bounds];
+                CIFaceFeature *face = [features objectAtIndex: i];
+                CGRect faceRect = [face bounds];
                 
                 NSLog(@"face1 x/y: %lu %lu %lu %lu", (unsigned long)faceRect.origin.x,(unsigned long)faceRect.origin.y,
                       (unsigned long)faceRect.size.width, (unsigned long)faceRect.size.height);
@@ -236,8 +229,6 @@
                 else {
                     faceRect = CGRectOffset(faceRect, previewBox.origin.x, previewBox.origin.y);
                 }
-                 
-                //faceRect = CGRectOffset(faceRect, previewBox.origin.x, previewBox.origin.y);
                 
                 NSLog(@"face2 x/y: %lu %lu %lu %lu", (unsigned long)faceRect.origin.x,(unsigned long)faceRect.origin.y,
                       (unsigned long)faceRect.size.width, (unsigned long)faceRect.size.height);
@@ -250,8 +241,18 @@
                         [NSNumber numberWithInteger: faceRect.origin.y], @"top",
                         [NSNumber numberWithInteger: faceRect.origin.x + faceRect.size.width], @"right",
                         [NSNumber numberWithInteger: faceRect.origin.y + faceRect.size.height], @"bottom",
+                     
+                        /* todo: eye & mouth positions must be translated and scaled similar to the faceRect
+                        [NSNumber numberWithInteger: face.hasLeftEyePosition ? face.leftEyePosition.x : -1], @"leftEyeX",
+                        [NSNumber numberWithInteger: face.hasLeftEyePosition ? face.leftEyePosition.y : -1], @"leftEyeY",
+                        [NSNumber numberWithInteger: face.hasRightEyePosition ? face.rightEyePosition.x : -1], @"rightEyeX",
+                        [NSNumber numberWithInteger: face.hasRightEyePosition ? face.rightEyePosition.y : -1], @"rightEyeY",
+                        [NSNumber numberWithInteger: face.hasMouthPosition ? face.mouthPosition.x : -1], @"mouthX",
+                        [NSNumber numberWithInteger: face.hasMouthPosition ? face.mouthPosition.y : -1], @"mouthY",
+                         */
+                     
                         nil];
-                                                         
+                
                 [faces addObject:faceinfo];
             }
             
