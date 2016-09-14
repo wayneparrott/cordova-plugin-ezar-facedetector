@@ -97,11 +97,13 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
     private void startFaceDetection(CallbackContext callbackContext) {
 		Log.d(TAG, "startFaceDetection");
 
-        this.callbackContext = callbackContext;
+        if  (callbackContext != null) {
+            this.callbackContext = callbackContext;
+        }
         
 		if (getActiveVOCamera() == null) {
-			//no camera running, return error
-            callbackContext.error("VideoOverlay plugin not present");
+			//no camera running, return error; this should be handled already as precondition in javascript api
+            //callbackContext.error("Required VideoOverlay plugin not present");
             return;
 		}
 
@@ -122,13 +124,14 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
     private void stopFaceDetection(CallbackContext callbackContext) {
 		Log.d(TAG, "stopFaceDetection");
 
-		if (getActiveVOCamera() == null) {
-			//no camera running, return error
-            callbackContext.error("VideoOverlay plugin not present");
-            return;
-		}
-
-        camera.stopFaceDetection();
+        if (camera != null) {
+           try {
+               camera.stopFaceDetection();
+               camera.setFaceDetectionListener(null);
+           } catch(Exception ex) {
+               //do nothing
+           }
+        }
 
         if (camera != null) {
             camera = null;
@@ -136,7 +139,10 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
             cameraDirection = null;
         }
 
-        callbackContext.success();
+        if (callbackContext != null) {
+            this.callbackContext = null;
+            callbackContext.success();
+        }
 	}
 
     @Override
@@ -157,7 +163,7 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
         Matrix matrix = new Matrix();
 
         // Need mirror for front camera.
-        boolean mirror = (cameraDirection.isFlipping());
+        boolean mirror = (cameraDirection.isMirror());
         matrix.setScale(mirror ? -1 : 1, 1);
         // This is the value for android.hardware.Camera.setDisplayOrientation.
         matrix.postRotate(getDisplayOrientation());
@@ -354,6 +360,14 @@ public class FaceDetector extends CordovaPlugin implements Camera.FaceDetectionL
         }
 
         return result;
+    }
+
+    public void videoOverlayStarted(int voCameraDir, int voCameraId, Camera voCamera) {
+       startFaceDetection(null);
+    }
+
+    public void videoOverlayStopped(int voCameraDir, int voCameraId, Camera voCamera) {
+        stopFaceDetection(null);
     }
 
 }
