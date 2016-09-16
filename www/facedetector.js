@@ -54,9 +54,9 @@ module.exports = (function() {
     }
                
     
-     _facedetector.clearWatch = function(successCallback,errorCallback) {
+     _facedetector.clearFacesWatch = function(successCallback,errorCallback) {
 
-        var onSuccess = function(imageData) {
+        var onSuccess = function() {
             running = false;
             if (successCallback) {
                   successCallback();
