@@ -31,7 +31,7 @@ module.exports = (function() {
     
     _facedetector.watchFaces = function(successCallback,errorCallback) {
        //test for videoOverlay plugin installed
-       if (window.ezar && window.ezar.initializeVideoOverlay) {
+       if (!window.ezar || !window.ezar.initializeVideoOverlay) {
            //error the videoOverlay plugin is not installed
            if (errorCallback && typeof(errorCallback) === 'function') {
                errorCallback('Required VideoOverlay plugin not present');
