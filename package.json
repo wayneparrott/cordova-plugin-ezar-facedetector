@@ -1,6 +1,6 @@
 {
   "name": "com.ezartech.ezar.facedetector",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Detect human faces in video preview data from the videooverlay plugin",
   "cordova": {
     "id": "com.ezartech.ezar.facedetector",
