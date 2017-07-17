@@ -1,9 +1,9 @@
 {
-  "name": "com.ezartech.ezar.facedetector",
-  "version": "0.2.1",
-  "description": "Detect human faces in video preview data from the videooverlay plugin",
+  "name": "ezAR Face Detector Plugin",
+  "version": "1.0.0",
+  "description": "Detect human faces in video preview stream from the videooverlay plugin",
   "cordova": {
-    "id": "com.ezartech.ezar.facedetector",
+    "id": "cordova-plguin-ezar-facedetector",
     "platforms": [
       "ios",
       "android"
@@ -15,7 +15,7 @@
     "cordova-ios",
     "cordova-android"
   ],
-  "author": "Wayne Parrott",
+  "author": "Wayne Parrott <wayne@ezartech.com> (http://ezartech.com)",
   "license": "modified MIT License, see http://ezartech.com/ezarstartupkit-license",
   "bugs": {
     "url": "https://support.ezartech.com"
