@@ -1,5 +1,5 @@
 {
-  "name": "ezAR Face Detector Plugin",
+  "name": "cordova-plguin-ezar-facedetector",
   "version": "1.0.0",
   "description": "Detect human faces in video preview stream from the videooverlay plugin",
   "cordova": {
