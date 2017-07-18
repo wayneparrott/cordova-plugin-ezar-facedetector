@@ -1,18 +1,19 @@
-#ezAR FaceDetector Cordova Plugin
-Detect faces in a video preview from the VideoOverlay plugin. Uses native OS-level face detection. 
+# ezAR FaceDetector Cordova Plugin
+Detect faces in a video preview from the VideoOverlay plugin. 
+Uses native OS-level face detection. 
 
 
-Requires the VideoOverlay plugin. 
+Requires the VideoOverlay plugin (cordova-plugin-ezar-videooverlay). 
 
-##Supported Platforms
+## Supported Platforms
 - iOS 7 and greater
 - Android 4.2 and greater 
 
 
-##Additional Documentation        
+## Additional Documentation        
 See [ezartech.com](http://ezartech.com) for documentation and support.
 
-##License
+## License
 The ezAR FaceDetector plugin is licensed under a [modified MIT license](http://www.ezartech.com/ezarstartupkit-license).
 
 
