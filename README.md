@@ -1,3 +1,5 @@
+Deprecated - no longer supported.
+
 # ezAR FaceDetector Cordova Plugin
 Detect faces in a video preview from the VideoOverlay plugin. 
 Uses native OS-level face detection. 
